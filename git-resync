@@ -1,0 +1,95 @@
+#!/bin/bash
+
+set -e
+
+mirror=0 # Don't force-push and delete old branches by default.
+prune=0  # Don't prune old branches by default.
+
+myname="$( basename "$0" )"
+
+usage() {
+    cat <<END_USAGE
+
+Usage: $myname [args] source destination
+END_USAGE
+}
+
+help() {
+    cat <<END_HELP
+$myname syncs a source git repository to a destination repository.
+$( usage )
+
+Options:
+ -h, --help     This help message
+ -m, --mirror   Forcibly re-sync the destination from the source
+ -p, --prune    Prune old branches/tags that don't exit on the source
+
+END_HELP
+}
+
+parsearg() {
+    arg="$1"
+    case "$arg" in
+    -h|--help)
+        help
+        exit 0
+        ;;
+    -m|--mirror)
+        mirror=1
+        ;;
+    -p|--prune)
+        prune=1
+        ;;
+    *)
+        echo "Invalid argument: $arg" >&2
+        usage >&2
+        exit 1
+        ;;
+    esac
+}
+
+args=()
+
+for arg in "$@" ; do
+    if [[ "$arg" =~ ^- ]] ; then
+        parsearg "$arg"
+    else
+        args+=("$arg")
+    fi
+done
+
+if [ "${#args[@]}" -ne 2 ] ; then
+    echo "Expected 2 arguments, found ${#args[@]}." >&2
+    usage >&2
+    exit 1
+fi
+
+source="$1"
+destination="$2"
+
+tmpdir="$( mktemp -d )"
+trap "rm -rf '$tmpdir'" EXIT
+
+git clone --mirror "$source" "$tmpdir"
+git -C "$tmpdir" remote add destination "$destination"
+
+pushargs=('--all')
+tagsargs=('--tags')
+
+if [ "$mirror" -gt 0 ] ; then
+    pushargs=('--mirror')
+    tagsargs=()
+fi
+
+if [ "$prune" -gt 0 ] ; then
+    pushargs+=('--prune')
+    tagsargs+=('--prune')
+fi
+
+if [ "${#pushargs[@]}" -gt 0 ] ; then
+    git -C "$tmpdir" push destination "${pushargs[@]}"
+fi
+
+if [ "${#tagsargs[@]}" -gt 0 ] ; then
+    git -C "$tmpdir" push destination "${tagsargs[@]}"
+fi
