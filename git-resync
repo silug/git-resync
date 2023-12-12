@@ -2,8 +2,9 @@
 
 set -e
 
-mirror=0 # Don't force-push and delete old branches by default.
-prune=0  # Don't prune old branches by default.
+mirror=0   # Don't force-push and delete old branches by default.
+prune=0    # Don't prune old branches by default.
+onlytags=0 # Only sync tags
 
 myname="$( basename "$0" )"
 
@@ -23,6 +24,7 @@ Options:
  -h, --help     This help message
  -m, --mirror   Forcibly re-sync the destination from the source
  -p, --prune    Prune old branches/tags that don't exit on the source
+ -t, --onlytags Only sync tags
 
 END_HELP
 }
@@ -39,6 +41,9 @@ parsearg() {
         ;;
     -p|--prune)
         prune=1
+        ;;
+    -t|--onlytags)
+        onlytags=1
         ;;
     *)
         echo "Invalid argument: $arg" >&2
@@ -83,18 +88,20 @@ git -C "$tmpdir" remote add destination "$destination"
 pushargs=('--all')
 tagsargs=('--tags')
 
-if [ "$mirror" -gt 0 ] ; then
-    pushargs=('--mirror')
-    tagsargs=()
-fi
+if [ "$onlytags" -eq 0 ] ; then
+    if [ "$mirror" -gt 0 ] ; then
+        pushargs=('--mirror')
+        tagsargs=()
+    fi
 
-if [ "$prune" -gt 0 ] ; then
-    pushargs+=('--prune')
-    tagsargs+=('--prune')
-fi
+    if [ "$prune" -gt 0 ] ; then
+        pushargs+=('--prune')
+        tagsargs+=('--prune')
+    fi
 
-if [ "${#pushargs[@]}" -gt 0 ] ; then
-    git -C "$tmpdir" push destination "${pushargs[@]}"
+    if [ "${#pushargs[@]}" -gt 0 ] ; then
+        git -C "$tmpdir" push destination "${pushargs[@]}"
+    fi
 fi
 
 if [ "${#tagsargs[@]}" -gt 0 ] ; then
