@@ -1,10 +1,12 @@
 #!/bin/bash
 
 set -e
+shopt -s extglob
 
 mirror=0   # Don't force-push and delete old branches by default.
 prune=0    # Don't prune old branches by default.
 onlytags=0 # Only sync tags
+pushopt=() # Push options
 
 myname="$( basename "$0" )"
 
@@ -21,43 +23,50 @@ $myname syncs a source git repository to a destination repository.
 $( usage )
 
 Options:
- -h, --help     This help message
- -m, --mirror   Forcibly re-sync the destination from the source
- -p, --prune    Prune old branches/tags that don't exit on the source
- -t, --onlytags Only sync tags
+ -h, --help              This help message
+ -m, --mirror            Forcibly re-sync the destination from the source
+ -p, --prune             Prune old branches/tags that don't exit on the source
+ -t, --onlytags          Only sync tags
+ -o <string>,
+ --push-option=<string>  Push options
 
 END_HELP
 }
 
-parsearg() {
-    arg="$1"
-    case "$arg" in
-    -h|--help)
-        help
-        exit 0
-        ;;
-    -m|--mirror)
-        mirror=1
-        ;;
-    -p|--prune)
-        prune=1
-        ;;
-    -t|--onlytags)
-        onlytags=1
-        ;;
-    *)
-        echo "Invalid argument: $arg" >&2
-        usage >&2
-        exit 1
-        ;;
-    esac
-}
-
 args=()
 
-for arg in "$@" ; do
+while [ $# -gt 0 ] ; do
+    arg="$1"
+    shift
     if [[ "$arg" =~ ^- ]] ; then
-        parsearg "$arg"
+        case "$arg" in
+        -h|--help)
+            help
+            exit 0
+            ;;
+        -m|--mirror)
+            mirror=1
+            ;;
+        -p|--prune)
+            prune=1
+            ;;
+        -t|--onlytags)
+            onlytags=1
+            ;;
+        -o|--push-option?(=*))
+            if [[ $arg =~ = ]] ; then
+                pushopt+=("$arg")
+            else
+                pushopt+=("$arg" "$1")
+                shift
+            fi
+            ;;
+        *)
+            echo "Invalid argument: $arg" >&2
+            usage >&2
+            exit 1
+            ;;
+        esac
     else
         set +e
         url=$( git remote get-url "$arg" 2>/dev/null )
@@ -100,10 +109,10 @@ if [ "$onlytags" -eq 0 ] ; then
     fi
 
     if [ "${#pushargs[@]}" -gt 0 ] ; then
-        git -C "$tmpdir" push destination "${pushargs[@]}"
+        git -C "$tmpdir" push destination "${pushargs[@]}" "${pushopt[@]}"
     fi
 fi
 
 if [ "${#tagsargs[@]}" -gt 0 ] ; then
-    git -C "$tmpdir" push destination "${tagsargs[@]}"
+    git -C "$tmpdir" push destination "${tagsargs[@]}" "${pushopt[@]}"
 fi
