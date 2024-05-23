@@ -92,6 +92,7 @@ tmpdir="$( mktemp -d )"
 trap "rm -rf '$tmpdir'" EXIT
 
 git clone --mirror "$source" "$tmpdir"
+git -C "$tmpdir" remote remove origin
 git -C "$tmpdir" remote add destination "$destination"
 
 pushargs=('--all')
