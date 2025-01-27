@@ -98,7 +98,11 @@ git -C "$tmpdir" remote remove origin
 
 # Remove hidden refs from GitLab repos.
 # Solution from https://stackoverflow.com/a/46229416.
-git -C "$tmpdir" for-each-ref --format='delete %(refname)' refs/merge-requests refs/pipelines \
+git -C "$tmpdir" for-each-ref \
+    --format='delete %(refname)' \
+    refs/merge-requests \
+    refs/pipelines \
+    refs/environments/ci-integration\*/deployments/\* \
     | git -C "$tmpdir" update-ref --stdin
 
 git -C "$tmpdir" remote add destination "$destination"
